@@ -1,7 +1,6 @@
 # PERi-PERi Email
 
-
-I had a slightly wacky idea, partly because it made me laugh and partly because I wanted to see how far I could get with as little prompting as possible. 
+I had a slightly wacky idea, partly because it made me laugh and partly because I wanted to see how far I could get with as little prompting as possible.
 
 PERi-PERi Email combines two of my favourite things: emails and heat. Paste in your email, pick a heat on the chilli, and Claude rewrites it to match.
 
@@ -9,6 +8,12 @@ PERi-PERi Email combines two of my favourite things: emails and heat. Paste in y
 - **Fuming, and about to say something HR will want a word about?** Cool it down to Lemon & Herb.
 
 Send at your own risk.
+
+<p align="center">
+  <a href="docs/promo.mp4"><img src="docs/promo.gif" alt="PERi-PERi Email rewriting the same email from Plain...ish up to Extra Hot" width="420"></a>
+  <br>
+  <sub><a href="docs/promo.mp4">Watch the full-quality video</a></sub>
+</p>
 
 ## The heat scale
 
