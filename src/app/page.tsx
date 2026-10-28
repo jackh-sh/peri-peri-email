@@ -1,69 +1,181 @@
-import Image from "next/image";
+"use client";
+
+import { useCompletion } from "@ai-sdk/react";
+import { useRef, useState } from "react";
+
+import { ChilliSlider } from "@/components/chilli-slider";
+import { REWRITE_ENDPOINT } from "@/lib/api";
+import { DEFAULT_FLAVOUR, getFlavour, type FlavourId } from "@/lib/flavours";
+
+const SAMPLE_EMAIL = `Subject: Quarterly report
+
+Hi Sam,
+
+Just checking whether you've had a chance to look at the quarterly report I sent over on Monday. I need your sign-off by Friday so it can go to the board.
+
+Thanks,
+Alex`;
 
 export default function Home() {
+  const [flavourId, setFlavourId] = useState<FlavourId>(DEFAULT_FLAVOUR);
+  const [outputFlavourId, setOutputFlavourId] = useState<FlavourId>(DEFAULT_FLAVOUR);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const stoppedRef = useRef(false);
+
+  const { completion, input, setInput, complete, isLoading, error, stop } = useCompletion({
+    api: REWRITE_ENDPOINT,
+    throttle: 30,
+    onFinish: (_prompt, text) => {
+      if (!text.trim() && !stoppedRef.current) {
+        setNotice("Claude declined to rewrite that one. Try a different email or heat.");
+      }
+    },
+  });
+
+  const flavour = getFlavour(flavourId);
+  const outputFlavour = getFlavour(outputFlavourId);
+  const canSubmit = Boolean(input.trim()) && !isLoading;
+
+  function rewrite() {
+    if (!canSubmit) return;
+    stoppedRef.current = false;
+    setNotice(null);
+    setCopied(false);
+    setOutputFlavourId(flavourId);
+    void complete(input, {
+      body: { flavour: flavourId },
+    });
+  }
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(completion);
+      setCopied(true);
+    } catch {
+      setNotice("Couldn't copy to the clipboard. Select the text and copy it manually.");
+    }
+  }
+
+  const showOutput = Boolean(completion || isLoading || error || notice);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-12">
+      <header className="mb-8">
+        <h1 className="font-display text-4xl font-extrabold tracking-tight md:text-5xl">
+          PERi-PERi <span className="text-[var(--accent)]">Email</span>
+        </h1>
+        <p className="mt-2 text-[var(--muted)]">
+          Paste an email. Pick your heat. Send at your own risk.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 gap-6 [grid-template-areas:'email''heat''output'] md:grid-cols-[minmax(0,1fr)_auto] md:grid-rows-[auto_1fr] md:gap-x-10 md:[grid-template-areas:'email_heat''output_heat']">
+        <div className="[grid-area:email]">
+          <div className="mb-2 flex items-baseline justify-between gap-4">
+            <label htmlFor="email" className="text-sm font-semibold">
+              Your email
+            </label>
+            {!input && (
+              <button
+                type="button"
+                onClick={() => setInput(SAMPLE_EMAIL)}
+                className="text-sm text-[var(--accent)] underline-offset-2 hover:underline"
+              >
+                Use an example
+              </button>
+            )}
+          </div>
+          <textarea
+            id="email"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                rewrite();
+              }
+            }}
+            placeholder="Paste the email you want to reword..."
+            rows={12}
+            className="w-full resize-y rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 leading-relaxed outline-none focus:border-[var(--accent)]"
+          />
+        </div>
+
+        <aside className="flex flex-col items-center gap-4 [grid-area:heat] md:sticky md:top-8 md:self-start">
+          <h2 className="font-display text-xl font-bold">Pick your heat</h2>
+          <ChilliSlider value={flavourId} onChange={setFlavourId} />
+          <p className="text-center text-sm text-[var(--muted)]" aria-live="polite">
+            <span className="font-semibold text-[var(--ink)]">{flavour.name}:</span>{" "}
+            {flavour.tagline}
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={() => {
+                stoppedRef.current = true;
+                stop();
+              }}
+              className="w-full rounded-full border-2 border-[var(--ink)] px-6 py-3 font-display text-lg font-bold"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={rewrite}
+              disabled={!canSubmit}
+              className="w-full rounded-full border-2 border-[var(--ink)] px-6 py-3 font-display text-lg font-bold shadow-md transition-[transform,background-color] enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{
+                backgroundColor: flavour.colour,
+                color: flavour.heat >= 3 ? "#fff" : "#23140f",
+              }}
+            >
+              Rewrite it {flavour.name}
+            </button>
+          )}
+        </aside>
+
+        {showOutput && (
+          <section className="[grid-area:output]" aria-live="polite">
+            <div className="mb-2 flex items-center justify-between gap-4">
+              <h2 className="text-sm font-semibold">
+                Rewritten at{" "}
+                <span
+                  className="rounded-full px-2 py-0.5 text-[var(--ink)]"
+                  style={{ backgroundColor: `${outputFlavour.colour}55` }}
+                >
+                  {outputFlavour.name}
+                </span>
+              </h2>
+              {completion && !isLoading && (
+                <button
+                  type="button"
+                  onClick={copy}
+                  className="rounded-lg border border-[var(--line)] px-3 py-1 text-sm hover:bg-[var(--surface)]"
+                >
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              )}
+            </div>
+            <div
+              className="min-h-32 whitespace-pre-wrap rounded-2xl border-2 bg-[var(--surface)] p-4 leading-relaxed"
+              style={{ borderColor: outputFlavour.colour }}
+            >
+              {completion ||
+                (isLoading && (
+                  <span className="animate-pulse text-[var(--muted)]">Firing up the grill...</span>
+                ))}
+            </div>
+            {error && (
+              <p role="alert" className="mt-3 text-sm text-[var(--accent)]">
+                {error.message}
+              </p>
+            )}
+            {notice && <p className="mt-3 text-sm text-[var(--muted)]">{notice}</p>}
+          </section>
+        )}
+      </div>
+    </main>
   );
 }
